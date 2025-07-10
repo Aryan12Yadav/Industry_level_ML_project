@@ -20,19 +20,22 @@ numerical_columns:
   - Annual_Premium
   - Policy_Sales_Channel
   - Vintage
-  - Response
 
 categorical_columns:
   - Gender
   - Vehicle_Age
   - Vehicle_Damage
 
-drop_columns: _id
+drop_columns: id
 
 # For data transformation
 num_features:
   - Age
+  - Region_Code
   - Vintage
 
 mm_columns:
   - Annual_Premium
+  - Policy_Sales_Channel
+
+target_column: Response

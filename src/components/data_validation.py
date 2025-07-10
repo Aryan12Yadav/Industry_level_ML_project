@@ -67,6 +67,15 @@ class DataValidation:
         except Exception as e:
             raise MyException(e, sys)
 
+    def is_train_test_column_match(self, train_df: DataFrame, test_df: DataFrame) -> bool:
+        try:
+            if list(train_df.columns) != list(test_df.columns):
+                logging.warning("Train and test column names/order do not match.")
+                return False
+            return True
+        except Exception as e:
+            raise MyException(e, sys)
+
     def initiate_data_validation(self) -> DataValidationArtifact:
         try:
             logging.info("Starting data validation")
@@ -77,17 +86,21 @@ class DataValidation:
 
             validation_error_msg = ""
 
-            # Train columns check
+            # Train checks
             if not self.validate_number_of_columns(train_df):
                 validation_error_msg += "Training data column count mismatch. "
             if not self.is_column_exist(train_df):
                 validation_error_msg += "Training data column names/types mismatch. "
 
-            # Test columns check
+            # Test checks
             if not self.validate_number_of_columns(test_df):
                 validation_error_msg += "Testing data column count mismatch. "
             if not self.is_column_exist(test_df):
                 validation_error_msg += "Testing data column names/types mismatch. "
+
+            # Extra: train-test column consistency check
+            if not self.is_train_test_column_match(train_df, test_df):
+                validation_error_msg += "Train and test column names/order mismatch. "
 
             validation_status = len(validation_error_msg) == 0
 
