@@ -18,9 +18,6 @@ class DataIngestion:
             raise MyException(e, sys)
 
     def export_data_into_feature_store(self) -> DataFrame:
-        """
-        Export data from MongoDB, clean column names, and save to CSV.
-        """
         try:
             logging.info("Exporting data from MongoDB")
             my_data = Proj1Data()
@@ -29,11 +26,8 @@ class DataIngestion:
             )
 
             logging.info(f"Shape before cleaning: {dataframe.shape}")
-
-            # Clean column names (remove leading/trailing spaces)
             dataframe.columns = dataframe.columns.str.strip()
 
-            # Also strip string/categorical values (for example: " Male" → "Male")
             for col in dataframe.select_dtypes(include='object').columns:
                 dataframe[col] = dataframe[col].str.strip()
 
@@ -44,16 +38,12 @@ class DataIngestion:
 
             dataframe.to_csv(feature_store_file_path, index=False, header=True)
             logging.info(f"Saved to feature store: {feature_store_file_path}")
-
             return dataframe
 
         except Exception as e:
             raise MyException(e, sys)
 
     def split_data_as_train_test(self, dataframe: DataFrame) -> None:
-        """
-        Split dataframe into train and test sets and save them.
-        """
         logging.info("Entered split_data_as_train_test method of DataIngestion class")
         try:
             train_set, test_set = train_test_split(
@@ -67,12 +57,9 @@ class DataIngestion:
 
             logging.info("Exported train and test data successfully.")
         except Exception as e:
-            raise MyException(e, sys) from e
+            raise MyException(e, sys)
 
     def initiate_data_ingestion(self) -> DataIngestionArtifact:
-        """
-        Orchestrates data ingestion process.
-        """
         logging.info("Entered initiate_data_ingestion method of DataIngestion class")
         try:
             dataframe = self.export_data_into_feature_store()
@@ -89,4 +76,4 @@ class DataIngestion:
             logging.info(f"Data ingestion artifact: {data_ingestion_artifact}")
             return data_ingestion_artifact
         except Exception as e:
-            raise MyException(e, sys) from e
+            raise MyException(e, sys)

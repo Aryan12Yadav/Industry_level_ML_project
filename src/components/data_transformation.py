@@ -5,6 +5,7 @@ from imblearn.combine import SMOTEENN
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
 
 from src.constants import TARGET_COLUMN, SCHEMA_FILE_PATH
 from src.entity.config_entity import DataTransformationConfig
@@ -76,9 +77,9 @@ class DataTransformation:
         return df
 
     def _drop_id_column(self, df: pd.DataFrame) -> pd.DataFrame:
-        drop_col = self._schema_config.get('drop_columns')
-        if drop_col in df.columns:
-            df = df.drop(columns=drop_col)
+        for col in ["id", "_id"]:
+            if col in df.columns:
+                df.drop(columns=col, inplace=True)
         return df
 
     def _create_dummy_columns(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -94,11 +95,20 @@ class DataTransformation:
                 df[col] = df[col].astype(int)
         return df
 
-    def _prepare_features(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _prepare_features(self, df: pd.DataFrame, ref_columns: list = None) -> pd.DataFrame:
         df = self._map_gender_column(df)
         df = self._drop_id_column(df)
         df = self._create_dummy_columns(df)
         df = self._rename_columns(df)
+
+        if ref_columns is not None:
+            missing_cols = set(ref_columns) - set(df.columns)
+            for col in missing_cols:
+                df[col] = 0
+            extra_cols = set(df.columns) - set(ref_columns)
+            df.drop(columns=extra_cols, inplace=True)
+            df = df[ref_columns]
+
         return df
 
     def initiate_data_transformation(self) -> DataTransformationArtifact:
@@ -108,7 +118,6 @@ class DataTransformation:
             if not self.data_validation_artifact.validation_status:
                 raise MyException(self.data_validation_artifact.message, sys.exc_info()[2])
 
-            # Read & split train/test
             train_df = self.read_data(self.data_ingestion_artifact.trained_file_path)
             test_df = self.read_data(self.data_ingestion_artifact.test_file_path)
 
@@ -118,33 +127,38 @@ class DataTransformation:
             input_feature_test_df = test_df.drop(columns=TARGET_COLUMN)
             target_feature_test_df = test_df[TARGET_COLUMN]
 
-            # Prepare features
             input_feature_train_df = self._prepare_features(input_feature_train_df)
-            input_feature_test_df = self._prepare_features(input_feature_test_df)
+            input_feature_test_df = self._prepare_features(
+                input_feature_test_df,
+                ref_columns=input_feature_train_df.columns.tolist()
+            )
 
-            # Preprocessing pipeline
+            logging.info(f"Train shape after encoding: {input_feature_train_df.shape}")
+            logging.info(f"Test shape after encoding: {input_feature_test_df.shape}")
+
+            # Preprocessing
             preprocessor = self.get_data_transformer_object()
 
             input_feature_train_arr = preprocessor.fit_transform(input_feature_train_df)
             input_feature_test_arr = preprocessor.transform(input_feature_test_df)
 
-            # Apply SMOTEENN on training data only
+            # ✅ Handle NaNs before SMOTEENN
+            logging.info("Imputing missing values before SMOTEENN...")
+            imputer = SimpleImputer(strategy="mean")
+            input_feature_train_arr = imputer.fit_transform(input_feature_train_arr)
+            input_feature_test_arr = imputer.transform(input_feature_test_arr)
+
+            # ✅ Apply SMOTEENN
             logging.info("Applying SMOTEENN on training set only...")
             smoteenn = SMOTEENN(sampling_strategy="minority", random_state=42)
-
             input_feature_train_final, target_feature_train_final = smoteenn.fit_resample(
                 input_feature_train_arr, target_feature_train_df
             )
 
-            # Test data remains unchanged
-            input_feature_test_final = input_feature_test_arr
-            target_feature_test_final = target_feature_test_df
-
-            # Merge features & labels
+            # Save final transformed arrays
             train_arr = np.c_[input_feature_train_final, target_feature_train_final]
-            test_arr = np.c_[input_feature_test_final, target_feature_test_final]
+            test_arr = np.c_[input_feature_test_arr, target_feature_test_df]
 
-            # Save artifacts
             save_object(self.data_transformation_config.transformed_object_file_path, preprocessor)
             save_numpy_array_data(self.data_transformation_config.transformed_train_file_path, train_arr)
             save_numpy_array_data(self.data_transformation_config.transformed_test_file_path, test_arr)

@@ -2,9 +2,7 @@ import sys
 import pandas as pd
 from typing import Optional
 from dataclasses import dataclass
-
 from sklearn.metrics import f1_score
-
 from src.entity.config_entity import ModelEvaluationConfig
 from src.entity.artifact_entity import (
     ModelTrainerArtifact,
@@ -41,9 +39,6 @@ class ModelEvaluation:
             raise MyException(e, sys.exc_info()[2])
 
     def get_best_model(self) -> Optional[Proj1Estimator]:
-        """
-        Fetch the best model from production storage (S3 or local).
-        """
         try:
             bucket_name = self.model_eval_config.bucket_name
             model_path = self.model_eval_config.s3_model_key_path
@@ -55,93 +50,76 @@ class ModelEvaluation:
         except Exception as e:
             raise MyException(e, sys.exc_info()[2])
 
-    def _map_gender_column(self, df: pd.DataFrame) -> pd.DataFrame:
-        logging.info("Mapping 'Gender' column to binary values.")
-        df['Gender'] = df['Gender'].map({'Female': 0, 'Male': 1}).astype(int)
-        return df
+    def _preprocess(self, df: pd.DataFrame) -> pd.DataFrame:
+        try:
+            if "Gender" in df.columns:
+                df["Gender"] = df["Gender"].map({'Female': 0, 'Male': 1}).astype(int)
 
-    def _create_dummy_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        logging.info("Creating dummy variables for categorical features.")
-        return pd.get_dummies(df, drop_first=True)
+            if "_id" in df.columns:
+                df.drop("_id", axis=1, inplace=True)
 
-    def _rename_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        logging.info("Renaming specific columns and casting to int.")
-        df = df.rename(columns={
-            "Vehicle_Age_< 1 Year": "Vehicle_Age_lt_1_Year",
-            "Vehicle_Age_> 2 Years": "Vehicle_Age_gt_2_Years"
-        })
-        for col in ["Vehicle_Age_lt_1_Year", "Vehicle_Age_gt_2_Years", "Vehicle_Damage_Yes"]:
-            if col in df.columns:
-                df[col] = df[col].astype(int)
-        return df
+            df = pd.get_dummies(df, drop_first=True)
 
-    def _drop_id_column(self, df: pd.DataFrame) -> pd.DataFrame:
-        logging.info("Dropping 'id' column if present.")
-        if "_id" in df.columns:
-            df = df.drop("_id", axis=1)
-        return df
+            df.rename(columns={
+                "Vehicle_Age_< 1 Year": "Vehicle_Age_lt_1_Year",
+                "Vehicle_Age_> 2 Years": "Vehicle_Age_gt_2_Years"
+            }, inplace=True)
+
+            for col in ["Vehicle_Age_lt_1_Year", "Vehicle_Age_gt_2_Years", "Vehicle_Damage_Yes"]:
+                if col in df.columns:
+                    df[col] = df[col].astype(int)
+
+            return df
+        except Exception as e:
+            raise MyException(e, sys.exc_info()[2])
 
     def evaluate_model(self) -> EvaluateModelResponse:
-        """
-        Evaluate current trained model vs production model using F1 Score.
-        """
         try:
-            logging.info("Loading test data...")
+            logging.info("Loading test data for evaluation...")
             test_df = pd.read_csv(self.data_ingestion_artifact.test_file_path)
             x = test_df.drop(TARGET_COLUMN, axis=1)
             y = test_df[TARGET_COLUMN]
 
-            logging.info("Transforming test data for evaluation...")
-            x = self._map_gender_column(x)
-            x = self._drop_id_column(x)
-            x = self._create_dummy_columns(x)
-            x = self._rename_columns(x)
+            x = self._preprocess(x)
 
+            logging.info("Loading trained model...")
             trained_model = load_object(self.model_trainer_artifact.trained_model_file_path)
-            trained_model_f1_score = self.model_trainer_artifact.metric_artifact.f1_score
-            logging.info(f"Trained model F1 Score: {trained_model_f1_score}")
+            y_pred_trained = trained_model.predict(x)
+            trained_model_f1 = f1_score(y, y_pred_trained)
+            logging.info(f"Trained model F1 score: {trained_model_f1}")
 
-            best_model_f1_score = None
+            best_model_f1 = None
             best_model = self.get_best_model()
-            if best_model is not None:
-                logging.info("Evaluating production model...")
-                y_hat_best_model = best_model.predict(x)
-                best_model_f1_score = f1_score(y, y_hat_best_model)
-                logging.info(f"Production model F1 Score: {best_model_f1_score}")
 
-            tmp_best_model_score = best_model_f1_score if best_model_f1_score is not None else 0.0
-            is_model_accepted = trained_model_f1_score > tmp_best_model_score
-            difference = trained_model_f1_score - tmp_best_model_score
+            if best_model:
+                logging.info("Evaluating production (best) model...")
+                y_pred_best = best_model.predict(x)
+                best_model_f1 = f1_score(y, y_pred_best)
+                logging.info(f"Best model F1 score: {best_model_f1}")
 
-            result = EvaluateModelResponse(
-                trained_model_f1_score=trained_model_f1_score,
-                best_model_f1_score=best_model_f1_score,
-                is_model_accepted=is_model_accepted,
+            best_score = best_model_f1 if best_model_f1 is not None else 0.0
+            is_accepted = trained_model_f1 > best_score
+            difference = trained_model_f1 - best_score
+
+            return EvaluateModelResponse(
+                trained_model_f1_score=trained_model_f1,
+                best_model_f1_score=best_model_f1,
+                is_model_accepted=is_accepted,
                 difference=difference
             )
-
-            logging.info(f"Evaluation result: {result}")
-            return result
-
         except Exception as e:
             raise MyException(e, sys.exc_info()[2])
 
     def initiate_model_evaluation(self) -> ModelEvaluationArtifact:
-        """
-        Trigger model evaluation and return the artifact.
-        """
         try:
-            logging.info("----- Model Evaluation Component Started -----")
+            logging.info("----- Model Evaluation Started -----")
             evaluation_result = self.evaluate_model()
 
-            model_evaluation_artifact = ModelEvaluationArtifact(
+            return ModelEvaluationArtifact(
                 is_model_accepted=evaluation_result.is_model_accepted,
                 s3_model_path=self.model_eval_config.s3_model_key_path,
                 trained_model_path=self.model_trainer_artifact.trained_model_file_path,
                 changed_accuracy=evaluation_result.difference
             )
-
-            logging.info(f"Model Evaluation Artifact: {model_evaluation_artifact}")
-            return model_evaluation_artifact
         except Exception as e:
             raise MyException(e, sys.exc_info()[2])

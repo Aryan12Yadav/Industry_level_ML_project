@@ -31,8 +31,8 @@ drop_columns: id
 # For data transformation
 num_features:
   - Age
-  - Region_Code
   - Vintage
+  - Region_Code
 
 mm_columns:
   - Annual_Premium
