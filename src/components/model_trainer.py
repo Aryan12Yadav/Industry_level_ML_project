@@ -64,7 +64,8 @@ class ModelTrainer:
             metric_artifact = ClassificationMetricArtifact(
                 f1_score=f1,
                 precision_score=precision,
-                recall_score=recall
+                recall_score=recall,
+                accuracy=accuracy  # ✅ Now added properly
             )
 
             return model, metric_artifact
