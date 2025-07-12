@@ -1,4 +1,5 @@
 import sys
+
 import pandas as pd
 from pandas import DataFrame
 from sklearn.pipeline import Pipeline
@@ -6,57 +7,49 @@ from sklearn.pipeline import Pipeline
 from src.exception import MyException
 from src.logger import logging
 
-
 class TargetValueMapping:
     def __init__(self):
-        self.yes: int = 0
-        self.no: int = 1
-
+        self.yes:int = 0
+        self.no:int = 1
     def _asdict(self):
         return self.__dict__
-
     def reverse_mapping(self):
-        """
-        Returns a reversed dictionary of the target mapping (e.g., {0: 'yes', 1: 'no'}).
-        """
         mapping_response = self._asdict()
-        return {v: k for k, v in mapping_response.items()}
-
+        return dict(zip(mapping_response.values(),mapping_response.keys()))
 
 class MyModel:
     def __init__(self, preprocessing_object: Pipeline, trained_model_object: object):
         """
-        :param preprocessing_object: Sklearn Pipeline or any transformer for preprocessing.
-        :param trained_model_object: Trained model object (like RandomForestClassifier, etc.).
+        :param preprocessing_object: Input Object of preprocesser
+        :param trained_model_object: Input Object of trained model 
         """
         self.preprocessing_object = preprocessing_object
         self.trained_model_object = trained_model_object
 
-    def predict(self, dataframe: DataFrame) -> DataFrame:
+    def predict(self, dataframe: pd.DataFrame) -> DataFrame:
         """
-        Applies preprocessing and returns model predictions for the given DataFrame.
-
-        :param dataframe: Input DataFrame to make predictions on.
-        :return: Array-like predictions from the trained model.
+        Function accepts preprocessed inputs (with all custom transformations already applied),
+        applies scaling using preprocessing_object, and performs prediction on transformed features.
         """
         try:
             logging.info("Starting prediction process.")
 
-            # Step 1: Apply preprocessing
+            # Step 1: Apply scaling transformations using the pre-trained preprocessing object
             transformed_feature = self.preprocessing_object.transform(dataframe)
 
-            # Step 2: Make predictions
-            logging.info("Generating predictions using the trained model.")
+            # Step 2: Perform prediction using the trained model
+            logging.info("Using the trained model to get predictions")
             predictions = self.trained_model_object.predict(transformed_feature)
 
             return predictions
 
         except Exception as e:
             logging.error("Error occurred in predict method", exc_info=True)
-            raise MyException(e, sys.exc_info()[2]) from e
+            raise MyException(e, sys) from e
+
 
     def __repr__(self):
-        return f"{self.__class__.__name__}(model={type(self.trained_model_object).__name__})"
+        return f"{type(self.trained_model_object).__name__}()"
 
     def __str__(self):
-        return self.__repr__()
+        return f"{type(self.trained_model_object).__name__}()"

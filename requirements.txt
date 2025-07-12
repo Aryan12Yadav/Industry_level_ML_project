@@ -1,36 +1,21 @@
-# Core Data Science
-numpy
+ipykernel
 pandas
+numpy
 matplotlib
-seaborn
 plotly
+seaborn
 scikit-learn
-imblearn  # SMOTEENN support
-
-# YAML + Serialization
-PyYAML
-dill
-
-# MongoDB
 pymongo
+from_root
+dill
 certifi
-
-# AWS (if using S3 buckets)
+PyYAML
 boto3
 mypy-boto3-s3
 botocore
-
-# FastAPI (for model deployment)
 fastapi
 python-multipart
 uvicorn
 jinja2
-
-# Jupyter Notebook Kernel
-ipykernel
-
-# Custom package (your source code)
+imblearn
 -e .
-
-# Internal utility
-from_root
