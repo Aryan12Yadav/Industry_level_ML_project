@@ -3,6 +3,7 @@ import pandas as pd
 from typing import Optional
 from dataclasses import dataclass
 from sklearn.metrics import f1_score
+
 from src.entity.config_entity import ModelEvaluationConfig
 from src.entity.artifact_entity import (
     ModelTrainerArtifact,
@@ -58,6 +59,7 @@ class ModelEvaluation:
             if "_id" in df.columns:
                 df.drop("_id", axis=1, inplace=True)
 
+            # One-hot encode with rename for consistent model compatibility
             df = pd.get_dummies(df, drop_first=True)
 
             df.rename(columns={
@@ -77,9 +79,9 @@ class ModelEvaluation:
         try:
             logging.info("Loading test data for evaluation...")
             test_df = pd.read_csv(self.data_ingestion_artifact.test_file_path)
+
             x = test_df.drop(TARGET_COLUMN, axis=1)
             y = test_df[TARGET_COLUMN]
-
             x = self._preprocess(x)
 
             logging.info("Loading trained model...")
@@ -92,7 +94,7 @@ class ModelEvaluation:
             best_model = self.get_best_model()
 
             if best_model:
-                logging.info("Evaluating production (best) model...")
+                logging.info("Evaluating existing production (best) model...")
                 y_pred_best = best_model.predict(x)
                 best_model_f1 = f1_score(y, y_pred_best)
                 logging.info(f"Best model F1 score: {best_model_f1}")

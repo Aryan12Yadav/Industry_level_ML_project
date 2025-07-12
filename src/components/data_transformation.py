@@ -56,13 +56,10 @@ class DataTransformation:
             num_features = self._schema_config['num_features']
             mm_columns = self._schema_config['mm_columns']
 
-            numeric_transformer = StandardScaler()
-            minmax_transformer = MinMaxScaler()
-
             preprocessor = ColumnTransformer(
                 transformers=[
-                    ('std_scaler', numeric_transformer, num_features),
-                    ('minmax_scaler', minmax_transformer, mm_columns)
+                    ('std_scaler', StandardScaler(), num_features),
+                    ('minmax_scaler', MinMaxScaler(), mm_columns)
                 ],
                 remainder='passthrough'
             )
@@ -136,26 +133,23 @@ class DataTransformation:
             logging.info(f"Train shape after encoding: {input_feature_train_df.shape}")
             logging.info(f"Test shape after encoding: {input_feature_test_df.shape}")
 
-            # Preprocessing
             preprocessor = self.get_data_transformer_object()
-
             input_feature_train_arr = preprocessor.fit_transform(input_feature_train_df)
             input_feature_test_arr = preprocessor.transform(input_feature_test_df)
 
-            # ✅ Handle NaNs before SMOTEENN
+            # Handle NaNs before SMOTEENN
             logging.info("Imputing missing values before SMOTEENN...")
             imputer = SimpleImputer(strategy="mean")
             input_feature_train_arr = imputer.fit_transform(input_feature_train_arr)
             input_feature_test_arr = imputer.transform(input_feature_test_arr)
 
-            # ✅ Apply SMOTEENN
+            # Apply SMOTEENN
             logging.info("Applying SMOTEENN on training set only...")
             smoteenn = SMOTEENN(sampling_strategy="minority", random_state=42)
             input_feature_train_final, target_feature_train_final = smoteenn.fit_resample(
                 input_feature_train_arr, target_feature_train_df
             )
 
-            # Save final transformed arrays
             train_arr = np.c_[input_feature_train_final, target_feature_train_final]
             test_arr = np.c_[input_feature_test_arr, target_feature_test_df]
 

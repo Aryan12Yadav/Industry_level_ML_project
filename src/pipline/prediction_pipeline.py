@@ -38,26 +38,24 @@ class VehicleData:
             self.Vehicle_Damage_Yes = Vehicle_Damage_Yes
 
         except Exception as e:
-            raise MyException(e, sys) from e
+            raise MyException(e)
 
-    def get_vehicle_input_data_frame(self)-> DataFrame:
+    def get_vehicle_input_data_frame(self) -> DataFrame:
         """
-        This function returns a DataFrame from USvisaData class input
+        This function returns a DataFrame from VehicleData class input
         """
         try:
-            
             vehicle_input_dict = self.get_vehicle_data_as_dict()
             return DataFrame(vehicle_input_dict)
         
         except Exception as e:
-            raise MyException(e, sys) from e
-
+            raise MyException(e)
 
     def get_vehicle_data_as_dict(self):
         """
         This function returns a dictionary from VehicleData class input
         """
-        logging.info("Entered get_usvisa_data_as_dict method as VehicleData class")
+        logging.info("Entered get_vehicle_data_as_dict method as VehicleData class")
 
         try:
             input_data = {
@@ -79,17 +77,18 @@ class VehicleData:
             return input_data
 
         except Exception as e:
-            raise MyException(e, sys) from e
+            raise MyException(e)
+
 
 class VehicleDataClassifier:
-    def __init__(self,prediction_pipeline_config: VehiclePredictorConfig = VehiclePredictorConfig(),) -> None:
+    def __init__(self, prediction_pipeline_config: VehiclePredictorConfig = VehiclePredictorConfig()) -> None:
         """
         :param prediction_pipeline_config: Configuration for prediction the value
         """
         try:
             self.prediction_pipeline_config = prediction_pipeline_config
         except Exception as e:
-            raise MyException(e, sys)
+            raise MyException(e)
 
     def predict(self, dataframe) -> str:
         """
@@ -102,9 +101,8 @@ class VehicleDataClassifier:
                 bucket_name=self.prediction_pipeline_config.model_bucket_name,
                 model_path=self.prediction_pipeline_config.model_file_path,
             )
-            result =  model.predict(dataframe)
-            
+            result = model.predict(dataframe)
             return result
         
         except Exception as e:
-            raise MyException(e, sys)
+            raise MyException(e)

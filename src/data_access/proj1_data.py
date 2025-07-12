@@ -19,7 +19,7 @@ class Proj1Data:
         try:
             self.mongo_client = MongoDBClient(database_name=DATABASE_NAME)
         except Exception as e:
-            raise MyException(e, sys)
+            raise MyException(e, sys.exc_info()[2])
 
     def export_collection_as_dataframe(self, collection_name: str, database_name: Optional[str] = None) -> pd.DataFrame:
         """
@@ -39,19 +39,24 @@ class Proj1Data:
         """
         try:
             # Access specified collection from the default or specified database
-            if database_name is None:
-                collection = self.mongo_client.database[collection_name]
-            else:
-                collection = self.mongo_client[database_name][collection_name]
+            db = self.mongo_client[database_name] if database_name else self.mongo_client.database
+            collection = db[collection_name]
 
-            # Convert collection data to DataFrame and preprocess
-            print("Fetching data from mongoDB")
-            df = pd.DataFrame(list(collection.find()))
-            print(f"Data fecthed with len: {len(df)}")
-            if "id" in df.columns.to_list():
-                df = df.drop(columns=["id"], axis=1)
-            df.replace({"na":np.nan},inplace=True)
+            print("Fetching data from MongoDB...")
+            records = list(collection.find())
+
+            if not records:
+                raise ValueError(f"No records found in collection: '{collection_name}'")
+
+            df = pd.DataFrame(records)
+            print(f"Data fetched successfully. Total records: {len(df)}")
+
+            if "id" in df.columns:
+                df.drop(columns=["id"], inplace=True)
+
+            df.replace({"na": np.nan}, inplace=True)
+
             return df
 
         except Exception as e:
-            raise MyException(e, sys)
+            raise MyException(e, sys.exc_info()[2])

@@ -13,7 +13,11 @@ from src.constants import SCHEMA_FILE_PATH
 
 
 class DataValidation:
-    def __init__(self, data_ingestion_artifact: DataIngestionArtifact, data_validation_config: DataValidationConfig):
+    def __init__(
+        self,
+        data_ingestion_artifact: DataIngestionArtifact,
+        data_validation_config: DataValidationConfig
+    ):
         try:
             self.data_ingestion_artifact = data_ingestion_artifact
             self.data_validation_config = data_validation_config
@@ -21,18 +25,22 @@ class DataValidation:
         except Exception as e:
             raise MyException(e, sys)
 
-    def read_data(self, file_path) -> DataFrame:
+    def read_data(self, file_path: str) -> DataFrame:
         try:
             df = pd.read_csv(file_path)
             df.columns = df.columns.str.strip()
             for col in df.select_dtypes(include='object').columns:
                 df[col] = df[col].str.strip()
 
-            # Drop both 'id' (user-defined) and '_id' (from MongoDB)
-            drop_cols = [self._schema_config.get("drop_columns", ""), "_id"]
+            # Drop user-defined 'drop_columns' and MongoDB '_id'
+            drop_cols = []
+            if self._schema_config.get("drop_columns"):
+                drop_cols.append(self._schema_config["drop_columns"])
+            drop_cols.append("_id")
+
             for col in drop_cols:
                 if col in df.columns:
-                    df.drop(columns=[col], inplace=True)
+                    df.drop(columns=col, inplace=True)
                     logging.info(f"Dropped column: {col}")
 
             return df
@@ -41,7 +49,7 @@ class DataValidation:
 
     def validate_number_of_columns(self, dataframe: DataFrame) -> bool:
         try:
-            expected_columns = set(self._schema_config["columns"].keys()) - {self._schema_config["drop_columns"]}
+            expected_columns = set(self._schema_config["columns"].keys())
             actual_columns = set(dataframe.columns)
 
             missing = expected_columns - actual_columns
@@ -60,11 +68,11 @@ class DataValidation:
         try:
             dataframe_columns = df.columns
             missing_numerical_columns = [
-                col for col in self._schema_config["numerical_columns"]
+                col for col in self._schema_config.get("numerical_columns", [])
                 if col not in dataframe_columns
             ]
             missing_categorical_columns = [
-                col for col in self._schema_config["categorical_columns"]
+                col for col in self._schema_config.get("categorical_columns", [])
                 if col not in dataframe_columns
             ]
 
@@ -110,14 +118,8 @@ class DataValidation:
 
             validation_status = len(validation_error_msg) == 0
 
-            data_validation_artifact = DataValidationArtifact(
-                validation_status=validation_status,
-                message=validation_error_msg.strip(),
-                validation_report_file_path=self.data_validation_config.validation_report_file_path
-            )
-
+            # Save report
             os.makedirs(os.path.dirname(self.data_validation_config.validation_report_file_path), exist_ok=True)
-
             with open(self.data_validation_config.validation_report_file_path, "w") as report_file:
                 json.dump({
                     "validation_status": validation_status,
@@ -125,6 +127,10 @@ class DataValidation:
                 }, report_file, indent=4)
 
             logging.info("Data validation completed successfully.")
-            return data_validation_artifact
+            return DataValidationArtifact(
+                validation_status=validation_status,
+                message=validation_error_msg.strip(),
+                validation_report_file_path=self.data_validation_config.validation_report_file_path
+            )
         except Exception as e:
             raise MyException(e, sys)

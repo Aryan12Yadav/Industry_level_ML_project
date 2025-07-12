@@ -45,7 +45,7 @@ class TrainPipeline:
             logging.info(f"Data ingestion completed. Train path: {artifact.trained_file_path}, Test path: {artifact.test_file_path}")
             return artifact
         except Exception as e:
-            raise MyException(e, sys.exc_info()[2])
+            raise MyException(e)
 
     def start_data_validation(self, data_ingestion_artifact: DataIngestionArtifact) -> DataValidationArtifact:
         try:
@@ -58,7 +58,7 @@ class TrainPipeline:
             logging.info(f"Data validation status: {artifact.validation_status} | Message: {artifact.message}")
             return artifact
         except Exception as e:
-            raise MyException(e, sys.exc_info()[2])
+            raise MyException(e)
 
     def start_data_transformation(
         self,
@@ -76,7 +76,7 @@ class TrainPipeline:
             logging.info("Data transformation completed.")
             return artifact
         except Exception as e:
-            raise MyException(e, sys.exc_info()[2])
+            raise MyException(e)
 
     def start_model_trainer(self, data_transformation_artifact: DataTransformationArtifact) -> ModelTrainerArtifact:
         try:
@@ -89,7 +89,7 @@ class TrainPipeline:
             logging.info(f"Model training completed. Accuracy: {artifact.model_accuracy}")
             return artifact
         except Exception as e:
-            raise MyException(e, sys.exc_info()[2])
+            raise MyException(e)
 
     def start_model_evaluation(
         self,
@@ -107,7 +107,7 @@ class TrainPipeline:
             logging.info(f"Model evaluation completed. Model accepted: {artifact.is_model_accepted}")
             return artifact
         except Exception as e:
-            raise MyException(e, sys.exc_info()[2])
+            raise MyException(e)
 
     def start_model_pusher(self, model_evaluation_artifact: ModelEvaluationArtifact) -> ModelPusherArtifact:
         try:
@@ -120,7 +120,7 @@ class TrainPipeline:
             logging.info(f"Model successfully pushed to {artifact.saved_model_path}")
             return artifact
         except Exception as e:
-            raise MyException(e, sys.exc_info()[2])
+            raise MyException(e)
 
     def run_pipeline(self) -> None:
         try:
@@ -142,4 +142,4 @@ class TrainPipeline:
 
         except Exception as e:
             logging.error("Pipeline execution failed.")
-            raise MyException(e, sys.exc_info()[2])
+            raise MyException(e)
